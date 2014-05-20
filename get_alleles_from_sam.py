@@ -70,7 +70,7 @@ def write_alleles(sample_name, positions, array):
 	print 'Sample: %s' %(sample_name)
 	print 'Skipped: %i' %(skipped)
 	print 'Total positions: %i' %(len(positions))
-	print 'Positions covered: %.3f %%' %(100 - (float(skipped) / positions * 100.0))
+	print 'Positions covered: %.3f %%' %(100 - (float(skipped) / len(positions) * 100.0))
 	print 'Mean chastity: %.3f %%' %(mean_chastity)
 	if mean_chastity < 90:
 		print 'CHASTITY WARNING: Mixed samples can severely affect accuracy of placement'
