@@ -46,11 +46,12 @@ def read_sam(positions, array):
 def write_alleles(sample_name, positions, array):
 	frag = ''
 	chastity_list = []
-	skipped = 0
+	gaps = 0
 	for pos in sorted(positions):
 		counts = tuple(array[:,pos])
 		counts_sort = sorted(counts, reverse=True)
 		if all(counts[0] > base for base in counts[1:4]):
+			# chastity is greatest / (greatest + second greatest)
 			chastity_list.append(float(counts_sort[0]) / sum(counts_sort[:2]))
 			frag += 'A'
 		elif all(counts[1] > base for base in counts[0:1] + counts[2:4]):
@@ -63,13 +64,14 @@ def write_alleles(sample_name, positions, array):
 			chastity_list.append(float(counts_sort[0]) / sum(counts_sort[:2]))
 			frag += 'T'
 		else:
-			skipped += 1
+			gaps += 1
 			frag += '-'
 
 	mean_chastity = (sum(chastity_list) / len(frag)) * 100.0
 	print 'Sample: %s' %(sample_name)
-	print 'Skipped: %i' %(skipped)
 	print 'Total positions: %i' %(len(positions))
+	print 'Gaps: %i' %(gaps)
+	print 'Skipped: %i' %(skipped)
 	print 'Positions covered: %.3f %%' %(100 - (float(skipped) / len(positions) * 100.0))
 	print 'Mean chastity: %.3f %%' %(mean_chastity)
 	if mean_chastity < 90:
