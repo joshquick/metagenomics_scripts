@@ -53,23 +53,35 @@ def read_sam(positions, array):
 
 def write_alleles(sample_name, positions, array):
 	int_dict = {0:'A', 1:'C', 2:'G', 3:'T'}
-	#freq = 0.8
 	frag = ''
+	chastity_list = []
+	skipped = 0
 	for pos in sorted(positions):
 		counts = tuple(array[:,pos])
-		num_pure = 0
-		if counts == (0, 0, 0, 0):
-			frag += '-'
-		elif all(counts[0] > base for base in counts[1:4]):
+		counts_sort = sorted(counts, reverse=True)
+		if all(counts[0] > base for base in counts[1:4]):
+			chastity_list.append(float(counts_sort[0]) / sum(counts_sort[:2]))
 			frag += 'A'
 		elif all(counts[1] > base for base in counts[0:1] + counts[2:4]):
+			chastity_list.append(float(counts_sort[0]) / sum(counts_sort[:2]))
 			frag += 'C'
 		elif all(counts[2] > base for base in counts[0:2] + counts[3:4]):
+			chastity_list.append(float(counts_sort[0]) / sum(counts_sort[:2]))
 			frag += 'G'
 		elif all(counts[3] > base for base in counts[0:3]):
+			chastity_list.append(float(counts_sort[0]) / sum(counts_sort[:2]))
 			frag += 'T'
 		else:
+			skipped += 1
 			frag += '-'
+
+	mean_chastity = (sum(chastity_list) / len(frag)) * 100.0
+	print 'Sample: %s' %(sample_name)
+	print 'Total positions: %i' %(len(positions))
+	print 'Positions covered: %.3f %%' %(100 - ((skipped / len(positions)) * 100.0))
+	print 'Mean chastity: %.3f %%' %(mean_chastity)
+	if mean_chastity < 90:
+		print 'CHASTITY WARNING: Mixed samples can severely affect accuracy of placement'
 
 	id = sample_name
 	file_out = open('alleles/%s.fasta' %(sample_name), 'w')
