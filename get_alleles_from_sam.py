@@ -34,6 +34,7 @@ def init_array(refs):
 	positions = read_positions(sys.argv[2])
 	for ref in positions.keys():
 		array[ref] = numpy.zeros((4, max(positions[ref]) + 1), dtype=int)
+	print array
 	return array, positions
 
 def read_sam():
@@ -41,6 +42,7 @@ def read_sam():
 	alignment = pysam.Samfile('-', 'r')
 	array, positions = init_array(alignment.references)
 	for line in alignment:
+		print line
 		# ignore any unmapped reads
 		if line.is_unmapped: continue
 		# ignore any reads with indels
@@ -52,6 +54,7 @@ def read_sam():
 			continue
 		chrom = alignment.getrname(line.tid)
 		read_positions = set(xrange(line.pos, line.aend))
+		print read_positions
 		try:
 			isec = positions[chrom].intersection(read_positions)
 		except KeyError:
