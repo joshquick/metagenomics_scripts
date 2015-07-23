@@ -2,15 +2,14 @@ import numpy
 from Bio import SeqIO
 import sys
 import pysam
-import vcf
-from pstats import Stats
 from collections import OrderedDict
-from cProfile import run
-from pstats import Stats
+#import vcf
+#from cProfile import run
+#from pstats import Stats
 
 USE_CHASTITY = True
 
-### cat sd_0001_PAO1_5k.sam | python get_alleles_from_sam.py sample_name positions.txt vcf_file
+### cat sam_file | python get_alleles_from_sam.py sample_name positions.txt file_out
 
 def read_positions(positions_txt):
 	# all positions are 0-based (Pythonic)
@@ -42,12 +41,11 @@ def read_sam():
 	array, positions = init_array(alignment.references)
 	for line in alignment:
 		# ignore any unmapped reads
-		if line.is_unmapped: continue
+		if line.is_unmapped:
+			continue
 		# ignore any reads with indels
 		#if len([op for op, length in line.cigar if op != 0]):
 			#check for isec first then check length of indel?
-		#print line.seq
-		#print line.cigar
 		chrom = alignment.getrname(line.tid)
 		read_positions = set(xrange(line.pos, line.aend))
 		try:
@@ -55,19 +53,14 @@ def read_sam():
 		except KeyError:
 			continue
 		if isecs:
-			#print 'isecs', isecs
 			#overlap = [(pos, line.seq[pos-line.pos]) for pos in isec]
 			#quality = [(pos, ord(line.qual[pos-line.pos])-33) for pos in isec]
-			#if overlap:
+			aligned_pairs = dict((ref, query) for (query, ref) in line.get_aligned_pairs())
 			for isec in isecs:
-				for aligned_pair in line.get_aligned_pairs():
-					if aligned_pair[1] == isec:
-						if aligned_pair[0]:
-							#print aligned_pair, isec
-							#print 'pair', read_base, base_dict[read_base], isec
-							read_base = line.seq[aligned_pair[0]]
-							if read_base != 'N':
-								array[chrom][(base_dict[read_base], isec)] += 1
+				if aligned_pairs[isec]:
+					read_base = line.seq[aligned_pairs[isec]]
+					if read_base != 'N':
+							array[chrom][(base_dict[read_base], isec)] += 1
 	return array, positions
 
 def write_alleles():
@@ -76,41 +69,34 @@ def write_alleles():
 	frag = ''
 	chastity_list = []
 	gaps = 0
-	#indel_positions = [(position.CHROM, position.POS - 1) for position 
-#			   in list(vcf.Reader(open(sys.argv[3], 'r'))) if position.is_indel]
-	indel_positions = []
 	for chrom in positions.keys():
 		for pos in sorted(positions[chrom]):
-			if (chrom, pos) in indel_positions:
+			counts = tuple(array[chrom][:,pos])
+			counts_sort = sorted(counts, reverse=True)
+			if all(counts[0] > base for base in counts[1:4]):
+				# chastity is greatest / (greatest + second greatest)
+				if USE_CHASTITY:
+					chastity_list.append(float(counts_sort[0]) / 
+						     sum(counts_sort[:2]))
+				frag += 'A'
+			elif all(counts[1] > base for base in counts[0:1] + counts[2:4]):
+				if USE_CHASTITY:
+					chastity_list.append(float(counts_sort[0]) / 
+						     sum(counts_sort[:2]))
+				frag += 'C'
+			elif all(counts[2] > base for base in counts[0:2] + counts[3:4]):
+				if USE_CHASTITY:
+					chastity_list.append(float(counts_sort[0]) / 
+						     sum(counts_sort[:2]))
+				frag += 'G'
+			elif all(counts[3] > base for base in counts[0:3]):
+				if USE_CHASTITY:
+					chastity_list.append(float(counts_sort[0]) / 
+						     sum(counts_sort[:2]))
+				frag += 'T'
+			else:
 				gaps += 1
 				frag += '-'
-			else:
-				counts = tuple(array[chrom][:,pos])
-				counts_sort = sorted(counts, reverse=True)
-				if all(counts[0] > base for base in counts[1:4]):
-					# chastity is greatest / (greatest + second greatest)
-					if USE_CHASTITY:
-						chastity_list.append(float(counts_sort[0]) / 
-							     sum(counts_sort[:2]))
-					frag += 'A'
-				elif all(counts[1] > base for base in counts[0:1] + counts[2:4]):
-					if USE_CHASTITY:
-						chastity_list.append(float(counts_sort[0]) / 
-							     sum(counts_sort[:2]))
-					frag += 'C'
-				elif all(counts[2] > base for base in counts[0:2] + counts[3:4]):
-					if USE_CHASTITY:
-						chastity_list.append(float(counts_sort[0]) / 
-							     sum(counts_sort[:2]))
-					frag += 'G'
-				elif all(counts[3] > base for base in counts[0:3]):
-					if USE_CHASTITY:
-						chastity_list.append(float(counts_sort[0]) / 
-							     sum(counts_sort[:2]))
-					frag += 'T'
-				else:
-					gaps += 1
-					frag += '-'
 
 	total = sum([len(positions[chrom]) for chrom in positions.keys()])
 	print 'Sample: %s' %(sample_name)
