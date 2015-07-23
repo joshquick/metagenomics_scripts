@@ -34,7 +34,6 @@ def init_array(refs):
 	positions = read_positions(sys.argv[2])
 	for ref in positions.keys():
 		array[ref] = numpy.zeros((4, max(positions[ref]) + 1), dtype=int)
-	print array
 	return array, positions
 
 def read_sam():
@@ -42,30 +41,33 @@ def read_sam():
 	alignment = pysam.Samfile('-', 'r')
 	array, positions = init_array(alignment.references)
 	for line in alignment:
-		print line
 		# ignore any unmapped reads
 		if line.is_unmapped: continue
 		# ignore any reads with indels
-		if len([op for op, length in line.cigar if op != 0]):
+		#if len([op for op, length in line.cigar if op != 0]):
 			#check for isec first then check length of indel?
-			#increment A for ref and T for indel so correct string is generated
-			#print line.seq
-			#print line.cigar
-			continue
+		#print line.seq
+		#print line.cigar
 		chrom = alignment.getrname(line.tid)
 		read_positions = set(xrange(line.pos, line.aend))
-		print read_positions
 		try:
-			isec = positions[chrom].intersection(read_positions)
+			isecs = positions[chrom].intersection(read_positions)
 		except KeyError:
 			continue
-		if isec:
-			overlap = [(pos, line.seq[pos-line.pos]) for pos in isec]
+		if isecs:
+			#print 'isecs', isecs
+			#overlap = [(pos, line.seq[pos-line.pos]) for pos in isec]
 			#quality = [(pos, ord(line.qual[pos-line.pos])-33) for pos in isec]
-			if overlap:
-				for each in overlap:
-					if each[1] != 'N':
-						array[chrom][(base_dict[each[1]], each[0])] += 1
+			#if overlap:
+			for isec in isecs:
+				for aligned_pair in line.get_aligned_pairs():
+					if aligned_pair[1] == isec:
+						if aligned_pair[0]:
+							#print aligned_pair, isec
+							#print 'pair', read_base, base_dict[read_base], isec
+							read_base = line.seq[aligned_pair[0]]
+							if read_base != 'N':
+								array[chrom][(base_dict[read_base], isec)] += 1
 	return array, positions
 
 def write_alleles():
